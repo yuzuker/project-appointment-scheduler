@@ -1,0 +1,69 @@
+service: schedule-service-appointments-api # Choose a name for your service
+
+provider:
+  name: aws
+  runtime: nodejs18.x # Or nodejs20.x, etc. Choose a recent Node.js LTS version
+  region: us-east-1 # Or choose your preferred AWS region
+  # Add IAM role statements here
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action: # List of actions your function needs
+            - dynamodb:PutItem
+            - dynamodb:Scan
+            # - dynamodb:GetItem # Add later if you need to read items
+            # - dynamodb:Query # Add later if you need to query items
+            # - dynamodb:UpdateItem # Add later if you need to update items
+            # - dynamodb:DeleteItem # Add later if you need to delete items
+          Resource: # Specify the ARN of the table this function can access
+            - Fn::GetAtt: [ AppointmentsTable, Arn ] # Gets the ARN of the table defined above
+
+plugins:
+  - serverless-offline
+  - serverless-dynamodb-local
+
+functions:
+  scheduleAppointment: # Give your function a logical name
+    handler: src/handler.schedule # Points to the 'schedule' function in 'src/handler.js' (you'll create this file next)
+    # Add environment variable to pass table name to the function
+    environment:
+      # Use a string value for local development
+      APPOINTMENTS_TABLE_NAME: AppointmentsTable
+      API_KEY: test-api-key  # Store the API key as an environment variable
+    events:
+      - httpApi: # Use the simpler/cheaper HTTP API type
+          path: /appointments
+          method: post
+
+# You will define your DynamoDB table resource here later
+resources:
+  Resources:
+    AppointmentsTable: # Logical name for the table resource
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: AppointmentsTable # Simple name without stage variable
+        AttributeDefinitions: # Define the attributes used for keys
+          - AttributeName: location # Partition Key (groups items)
+            AttributeType: S # S = String
+          - AttributeName: appointmentTime # Sort Key (uniquely identifies within partition)
+            AttributeType: S # S = String (ISO 8601 format is good for sorting)
+        KeySchema: # Define how the keys are used
+          - AttributeName: location
+            KeyType: HASH # HASH = Partition Key
+          - AttributeName: appointmentTime
+            KeyType: RANGE # RANGE = Sort Key
+        BillingMode: PAY_PER_REQUEST # Good for unpredictable workloads, cost-effective for low traffic
+        # ProvisionedThroughput: # Alternatively, use provisioned throughput if traffic is predictable
+        #   ReadCapacityUnits: 1
+        #   WriteCapacityUnits: 1
+
+custom:
+  dynamodb:
+    stages:
+      - dev
+    start:
+      port: 8000
+      inMemory: false
+      migrate: true
+      seed: false
