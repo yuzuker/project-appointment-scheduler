@@ -51,8 +51,8 @@ After deployment, you'll receive an API endpoint URL. Save this URL for making r
 ```json
 {
   "fullName": "John Doe",
-  "location": "Farrish Subaru",
-  "appointmentTime": "2025-04-27T15:30:00Z",
+  "location": "Berlin",
+  "appointmentTime": "2026-04-27T15:30:00Z",
   "car": "Subaru Outback",
   "services": ["Oil Change"]
 }
@@ -65,10 +65,10 @@ curl -X POST https://your-api-endpoint/appointments \
   -H "Content-Type: application/json" \
   -d '{
     "fullName": "John Doe",
-    "location": "Farrish Subaru",
-    "appointmentTime": "2025-04-27T15:30:00Z",
+    "location": "Berlin",
+    "appointmentTime": "2026-04-27T15:30:00Z",
     "car": "Subaru Outback",
-    "services": ["Oil Change"]
+    "services": ["Oil Change, Tire Rotation"]
   }'
 ```
 
