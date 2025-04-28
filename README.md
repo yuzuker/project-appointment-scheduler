@@ -97,12 +97,12 @@ API_KEY=test-api-key
 API_URL=https://your-api-endpoint.execute-api.us-east-1.amazonaws.com
 ```
 
-1. Run the unit test suite:
+3. Run the unit test suite:
 ```bash
 npm test
 ```
 
-2. Run end-to-end tests:
+4. Run end-to-end tests:
 ```bash
 npm run test:e2e
 ```
