@@ -1,14 +1,19 @@
-const { appointmentScheduler } = require('../handler');
-const { DynamoDBDocumentClient, PutCommand, QueryCommand } = require('@aws-sdk/lib-dynamodb');
+const { appointmentScheduler, deleteAppointment } = require('../handler');
+const { DynamoDBDocumentClient} = require('@aws-sdk/lib-dynamodb');
 
 // Mock DynamoDB
+jest.mock('@aws-sdk/client-dynamodb', () => ({
+    DynamoDBClient: jest.fn()
+}));
+
 jest.mock('@aws-sdk/lib-dynamodb', () => ({
     DynamoDBDocumentClient: {
         from: jest.fn().mockReturnThis(),
         send: jest.fn()
     },
     PutCommand: jest.fn(),
-    QueryCommand: jest.fn()
+    QueryCommand: jest.fn(),
+    DeleteCommand: jest.fn()
 }));
 
 describe('Appointment Scheduler', () => {
@@ -19,7 +24,7 @@ describe('Appointment Scheduler', () => {
         body: JSON.stringify({
             fullName: "Test User",
             location: "Farrish Subaru",
-            appointmentTime: "2025-04-27T15:30:00Z",
+            appointmentTime: "2026-04-27T15:30:00Z",
             car: "Subaru Outback",
             services: ["Oil Change"]
         })
@@ -34,7 +39,7 @@ describe('Appointment Scheduler', () => {
 
     test('should successfully create appointment', async () => {
         const response = await appointmentScheduler(validEvent);
-        expect(response.statusCode).toBe(201);
+        expect(response.statusCode).toBe(200);
         expect(JSON.parse(response.body)).toHaveProperty('appointmentId');
     });
 
@@ -110,7 +115,7 @@ describe('Appointment Scheduler', () => {
             headers: validEvent.headers,
             body: JSON.stringify({
                 ...JSON.parse(validEvent.body),
-                appointmentTime: "2025-04-27T15:45:00Z"  // 45 minutes past the hour
+                appointmentTime: "2026-04-27T15:45:00Z"  // 45 minutes past the hour
             })
         };
         const response = await appointmentScheduler(event);
@@ -155,5 +160,78 @@ describe('Appointment Scheduler', () => {
         const response = await appointmentScheduler(event);
         expect(response.statusCode).toBe(400);
         expect(JSON.parse(response.body).message).toBe('Services cannot contain empty values');
+    });
+
+    test('should reject appointments outside business hours', async () => {
+        const event = {
+            headers: validEvent.headers,
+            body: JSON.stringify({
+                ...JSON.parse(validEvent.body),
+                appointmentTime: "2026-04-27T01:00:00Z"  // 1 AM EST
+            })
+        };
+        const response = await appointmentScheduler(event);
+        expect(response.statusCode).toBe(400);
+        expect(JSON.parse(response.body).message).toBe('Appointments must be between 9 AM and 7 PM EST');
+    });
+});
+
+describe('Delete Appointment', () => {
+    const validEvent = {
+        headers: {
+            authorization: 'Bearer test-api-key'
+        },
+        pathParameters: {
+            id: 'test-appointment-id'
+        }
+    };
+
+    beforeEach(() => {
+        process.env.API_KEY = 'test-api-key';
+        process.env.APPOINTMENTS_TABLE = 'test-table';
+        jest.clearAllMocks();
+        DynamoDBDocumentClient.send.mockResolvedValue({});
+    });
+
+    test('should successfully delete appointment', async () => {
+        const response = await deleteAppointment(validEvent);
+        expect(response.statusCode).toBe(200);
+        expect(JSON.parse(response.body).message).toBe('Appointment deleted successfully');
+    });
+
+    test('should reject missing authorization header', async () => {
+        const event = { ...validEvent, headers: {} };
+        const response = await deleteAppointment(event);
+        expect(response.statusCode).toBe(401);
+    });
+
+    test('should reject invalid API key', async () => {
+        const event = {
+            ...validEvent,
+            headers: { authorization: 'Bearer wrong-key' }
+        };
+        const response = await deleteAppointment(event);
+        expect(response.statusCode).toBe(403);
+    });
+
+    test('should reject missing appointment ID', async () => {
+        const event = {
+            headers: validEvent.headers,
+            pathParameters: {}
+        };
+        const response = await deleteAppointment(event);
+        expect(response.statusCode).toBe(400);
+    });
+
+    test('should handle DynamoDB errors', async () => {
+        DynamoDBDocumentClient.send.mockRejectedValueOnce(new Error('DB Error'));
+        
+        const response = await deleteAppointment(validEvent);
+        
+        expect(response.statusCode).toBe(500);
+        expect(JSON.parse(response.body)).toEqual({
+            message: 'Could not delete the appointment',
+            error: 'DB Error'
+        });
     });
 }); 

@@ -33,6 +33,12 @@ functions:
       - httpApi:
           path: /appointments
           method: post
+  deleteAppointment:
+    handler: src/handler.deleteAppointment
+    events:
+      - httpApi:
+          path: /appointments/{id}
+          method: delete
 
 resources:
   Resources:

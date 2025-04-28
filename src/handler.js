@@ -1,6 +1,6 @@
 'use strict';
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
-const { DynamoDBDocumentClient, PutCommand, QueryCommand } = require('@aws-sdk/lib-dynamodb');
+const { DynamoDBDocumentClient, PutCommand, QueryCommand, DeleteCommand } = require('@aws-sdk/lib-dynamodb');
 
 const client = new DynamoDBClient({});
 const dynamoDb = DynamoDBDocumentClient.from(client);
@@ -167,9 +167,9 @@ module.exports.appointmentScheduler = async (event) => {
             Item: appointment
         }));
         
-        console.log('✅ [201] Appointment successfully created');
+        console.log('✅ [200] Appointment successfully created');
         return {
-            statusCode: 201,
+            statusCode: 200,
             body: JSON.stringify(appointment)
         };
     } catch (error) {
@@ -187,3 +187,67 @@ module.exports.appointmentScheduler = async (event) => {
         };
     }
 };
+
+module.exports.deleteAppointment = async (event) => {
+    console.log('🔄 [START] Processing appointment deletion request');
+    
+    try {
+        // Check Authorization header
+        const authHeader = event.headers.authorization;
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            console.log('🔐 [401] Authentication failed: Missing Authorization header');
+            return {
+                statusCode: 401,
+                body: JSON.stringify({
+                    message: 'Missing Authorization header'
+                })
+            };
+        }
+
+        const token = authHeader.split(' ')[1];
+        if (token !== process.env.API_KEY) {
+            console.log('🔐 [403] Authentication failed: Invalid API key');
+            return {
+                statusCode: 403,
+                body: JSON.stringify({
+                    message: 'Invalid API key'
+                })
+            };
+        }
+
+        const appointmentId = event.pathParameters.id;
+        if (!appointmentId) {
+            return {
+                statusCode: 400,
+                body: JSON.stringify({
+                    message: 'Appointment ID is required'
+                })
+            };
+        }
+
+        await dynamoDb.send(new DeleteCommand({
+            TableName: process.env.APPOINTMENTS_TABLE,
+            Key: {
+                appointmentId: appointmentId
+            }
+        }));
+
+        console.log('✅ [200] Appointment successfully deleted');
+        return {
+            statusCode: 200,
+            body: JSON.stringify({
+                message: 'Appointment deleted successfully'
+            })
+        };
+    } catch (error) {
+        console.error('❌ [500] Error deleting appointment:', error);
+        return {
+            statusCode: 500,
+            body: JSON.stringify({
+                message: 'Could not delete the appointment',
+                error: error.message
+            })
+        };
+    }
+};
+
