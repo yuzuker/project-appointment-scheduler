@@ -10,17 +10,25 @@ This is a serverless application for scheduling appointments. It provides an API
 
 ## Deployment
 
-1. Install dependencies:
+1. CLI and navigate to the folder where the contents were extracted
+2. Install dependencies:
 ```bash
 npm install
 ```
 
-2. Configure your environment variables in `serverless.yml`:
+2. **Optional** Configure your environment variables in `serverless.yml`:
 ```yaml
 environment:
   API_KEY: your-api-key-here
   APPOINTMENTS_TABLE: your-table-name
 ```
+Default Values are
+```
+  environment:
+    APPOINTMENTS_TABLE: ${self:service}-appointments-${self:provider.stage}
+    API_KEY: test-api-key
+```
+
 
 3. Deploy to AWS:
 ```bash
@@ -72,7 +80,7 @@ curl -X POST https://your-api-endpoint/appointments \
 - No conflicting appointments allowed at the same time
 
 **Response Codes:**
-- 201: Appointment created successfully
+- 200: Appointment created successfully
 - 400: Invalid request (missing/invalid fields)
 - 401: Missing authorization header
 - 403: Invalid API key
@@ -81,14 +89,27 @@ curl -X POST https://your-api-endpoint/appointments \
 
 ## Running Tests
 
+**Important:** For E2E tests to work, you need to:
+1. Copy `env.example` to `.env`
+2. Update the `API_URL` in the `.env` file with your deployed API endpoint URL:
+```
+API_KEY=test-api-key
+API_URL=https://your-api-endpoint.execute-api.us-east-1.amazonaws.com
+```
+
 1. Install development dependencies:
 ```bash
 npm install
 ```
 
-2. Run the test suite:
+2. Run the unit test suite:
 ```bash
 npm test
+```
+
+3. Run end-to-end tests:
+```bash
+npm run test:e2e
 ```
 
 The test suite includes comprehensive tests for:
@@ -111,3 +132,4 @@ The application uses:
 
 - `API_KEY`: Authentication key for the API
 - `APPOINTMENTS_TABLE`: DynamoDB table name for storing appointments 
+- `API_URL`: (For E2E tests only) The deployed API endpoint URL
